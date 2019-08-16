@@ -1,0 +1,110 @@
+##########################
+# Import MER data
+##########################
+
+
+library(tidyverse)
+library(openxlsx)
+source("MSD_Import.R")
+source("MSD_Convert_Long_Wide.R")
+
+master_facility_list <- read.xlsx("MasterFacility_soAJUDA.xlsx")
+datim_sites <- master_facility_list$DATIM_ID
+
+new_df <- read_new_msd("MER_Structured_Dataset_Site_IM_FY17-19_20190621_v2_1_Mozambique.txt") %>%
+  
+  select(-c("region", 
+            "regionuid",
+            "operatingunituid", 
+            "countryname", 
+            "mechanismuid",
+            "coarsedisaggregate",
+            "sitename",
+            "snu1uid",
+            "typemilitary",
+            "mechanismid",
+            "sitetype")
+  ) %>%
+  
+  filter(
+    ((indicator %in% c("HTS_TST","HTS_TST_POS")) & (standardizeddisaggregate %in% c("Modality/Age/Sex/Result", "Modality/Age Aggregated/Sex/Result"))) |
+    ((indicator == "TX_PVLS") & (standardizeddisaggregate == "Age/Sex/Indication/HIVStatus")) |
+    ((indicator %in% c("TX_CURR","TX_NEW", "TX_RET")) & (standardizeddisaggregate %in% c("Age Aggregated/sex/HIVStatus", "Age/Sex/HIVStatus"))) |
+    ((indicator == "TB_PREV")) & (standardizeddisaggregate %in% c("Age Aggregated/Sex/HIVStatus", "Age Aggregated/Sex/TherapyType/NewExistingArt/HIVStatus"))
+  ) %>%
+  
+  na_if(0) %>%
+  
+  # Grouping to recreate Wide Format 
+  #(i.e. each observation-row will have all their 
+  # time periods grouped together)
+  group_by_at(vars(orgunituid:modality, fiscal_year)) %>%
+  
+  # Keep observations that have values for either TARGETS or Cumulative
+  filter(!is.na(cumulative) | 
+           !is.na(targets)) %>%
+  
+  ungroup() %>%
+ 
+  select(-c("categoryoptioncomboname", 
+            "ageasentered", 
+            "trendsfine", 
+            "trendssemifine")) %>%
+  
+  filter(fiscal_year != "2017") %>%
+  
+  filter(implementingmechanismname %in% c("ARIEL", 
+                                          "CCS", 
+                                          "Clinical Services System Strengthening (CHASS)", 
+                                          "EGPAF", 
+                                          "Friends in Global Health", 
+                                          "ICAP")) %>%
+  filter(orgunituid %in% datim_sites)
+
+new_df <- convert_new_msd(new_df) %>%
+  
+  rename(
+    
+    "FY2018Q1" = "2018 qtr1",
+    "FY2018Q2" = "2018 qtr2",
+    "FY2018Q3" = "2018 qtr3",
+    "FY2018Q4" = "2018 qtr4",
+    "FY2018APR" = "2018 cumulative",
+    "FY2018_TARGETS" = "2018 targets",
+    
+    "FY2019Q1" = "2019 qtr1",
+    "FY2019Q2" = "2019 qtr2",
+    "FY2019Q3" = "2019 qtr3",
+    "FY2019Q4" = "2019 qtr4",
+    "FY2019_TARGETS" = "2019 targets",
+    "FY2019APR" = "2019 cumulative") %>%
+  
+  mutate( 
+    siteprioritization = case_when(
+      orgunituid == facilityuid ~ facilityprioritization,
+      orgunituid == communityuid ~ communityprioritization,
+      orgunituid == psnuuid ~ snuprioritization)
+  ) %>% 
+  
+  na_if(0) %>%
+  
+  rename(siteid = orgunituid) %>%
+  
+  filter(!is.na(FY2018Q4)
+         | !is.na(FY2018APR)
+         | !is.na(FY2019Q1)
+         | !is.na(FY2019Q2)
+         | !is.na(FY2019Q3)
+         | !is.na(FY2019Q4)
+         | !is.na(FY2019APR)
+         | !is.na(FY2019_TARGETS)
+  ) %>%
+  
+  select(-c("FY2018Q1", 
+            "FY2018Q2", 
+            "FY2018_TARGETS", 
+            "operatingunit",
+            "statuscx"))
+
+
+write.xlsx(new_df, file="MozSite_MSD_Q2FY19July25_17h.xlsx", keepNA = FALSE)
