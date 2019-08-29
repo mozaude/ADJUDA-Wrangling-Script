@@ -11,18 +11,18 @@ source("MSD_Convert_Long_Wide.R")
 master_facility_list <- read.xlsx("MasterFacility_soAJUDA.xlsx")
 datim_sites <- master_facility_list$DATIM_ID
 
-new_df <- read_new_msd("MER_Structured_Dataset_Site_IM_FY17-19_20190621_v2_1_Mozambique.txt") %>%
+new_df <- read_new_msd("MER_Structured_Datasets_Site_IM_FY17-19_20190815_v1_1_Mozambique.txt") %>%
   
-  select(-c("region", 
+  select(-c("sitename",
+            "region", 
             "regionuid",
+            "operatingunit",
             "operatingunituid", 
             "countryname", 
-            "mechanismuid",
-            "coarsedisaggregate",
-            "sitename",
             "snu1uid",
+            "mech_code",
+            "coarsedisaggregate",
             "typemilitary",
-            "mechanismid",
             "sitetype")
   ) %>%
   
@@ -53,12 +53,13 @@ new_df <- read_new_msd("MER_Structured_Dataset_Site_IM_FY17-19_20190621_v2_1_Moz
   
   filter(fiscal_year != "2017") %>%
   
-  filter(implementingmechanismname %in% c("ARIEL", 
-                                          "CCS", 
-                                          "Clinical Services System Strengthening (CHASS)", 
-                                          "EGPAF", 
-                                          "Friends in Global Health", 
-                                          "ICAP")) %>%
+  filter(mech_name %in% c("ARIEL", 
+                          "CCS", 
+                          "Clinical Services System Strengthening (CHASS)", 
+                          "EGPAF",
+                          "Friends in Global Health", 
+                          "ICAP")) %>%
+                          
   filter(orgunituid %in% datim_sites)
 
 new_df <- convert_new_msd(new_df) %>%
@@ -101,9 +102,8 @@ new_df <- convert_new_msd(new_df) %>%
   ) %>%
   
   select(-c("FY2018Q1", 
-            "FY2018Q2", 
-            "FY2018_TARGETS", 
-            "operatingunit",
+            "FY2018Q2",
+            "FY2018_TARGETS",
             "statuscx"))
 
 
